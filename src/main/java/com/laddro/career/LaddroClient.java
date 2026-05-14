@@ -2,6 +2,8 @@ package com.laddro.career;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.laddro.career.model.ArtifactMetadata;
+import com.laddro.career.model.BinaryResponse;
 
 import java.io.IOException;
 import java.net.URI;
@@ -56,7 +58,15 @@ public class LaddroClient {
                 .POST(jsonBody(body))
                 .header("Content-Type", "application/json")
                 .build();
-        return executeBinary(request);
+        return executeBinaryDetailed(request).data();
+    }
+
+    public BinaryResponse postBinaryDetailed(String path, Object body) throws LaddroException {
+        var request = newRequest(path)
+                .POST(jsonBody(body))
+                .header("Content-Type", "application/json")
+                .build();
+        return executeBinaryDetailed(request);
     }
 
     public <T> T put(String path, Object body, Class<T> responseType) throws LaddroException {
@@ -113,12 +123,16 @@ public class LaddroClient {
     }
 
     private byte[] executeBinary(HttpRequest request) throws LaddroException {
+        return executeBinaryDetailed(request).data();
+    }
+
+    private BinaryResponse executeBinaryDetailed(HttpRequest request) throws LaddroException {
         try {
             var response = http.send(request, HttpResponse.BodyHandlers.ofByteArray());
             if (response.statusCode() >= 400) {
                 throw parseError(response);
             }
-            return response.body();
+            return new BinaryResponse(response.body(), artifactMetadata(response));
         } catch (LaddroException e) {
             throw e;
         } catch (Exception e) {
@@ -139,5 +153,36 @@ public class LaddroClient {
 
     public ObjectMapper getMapper() {
         return mapper;
+    }
+
+    private ArtifactMetadata artifactMetadata(HttpResponse<byte[]> response) {
+        var headers = response.headers();
+        var contentType = headers.firstValue("content-type")
+                .map(value -> value.split(";", 2)[0])
+                .orElse(null);
+
+        return new ArtifactMetadata(
+                headers.firstValue("x-resume-id").orElse(null),
+                headers.firstValue("x-cover-letter-id").orElse(null),
+                contentDispositionFilename(headers.firstValue("content-disposition").orElse(null)),
+                contentType
+        );
+    }
+
+    private String contentDispositionFilename(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        for (String part : value.split(";")) {
+            var trimmed = part.trim();
+            if (!trimmed.toLowerCase().startsWith("filename") || !trimmed.contains("=")) {
+                continue;
+            }
+            var filename = trimmed.substring(trimmed.indexOf("=") + 1)
+                    .replaceFirst("^UTF-8''", "")
+                    .replaceAll("^\"|\"$", "");
+            return java.net.URLDecoder.decode(filename, java.nio.charset.StandardCharsets.UTF_8);
+        }
+        return null;
     }
 }
