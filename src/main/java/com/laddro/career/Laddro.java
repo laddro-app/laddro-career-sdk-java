@@ -50,6 +50,10 @@ public class Laddro {
         return client.postBinary("/v1/tailor", request);
     }
 
+    public BinaryResponse tailorDetailed(TailorRequest request) throws LaddroException {
+        return client.postBinaryDetailed("/v1/tailor", request);
+    }
+
     public byte[] exportPdf(ExportRequest request) throws LaddroException {
         return client.postBinary("/v1/export", request);
     }
@@ -68,6 +72,10 @@ public class Laddro {
 
     public byte[] generateCoverLetter(GenerateCoverLetterRequest request) throws LaddroException {
         return client.postBinary("/v1/cover-letters/generate", request);
+    }
+
+    public BinaryResponse generateCoverLetterDetailed(GenerateCoverLetterRequest request) throws LaddroException {
+        return client.postBinaryDetailed("/v1/cover-letters/generate", request);
     }
 
     public byte[] renderCoverLetter(String id, RenderOptions opts) throws LaddroException {
